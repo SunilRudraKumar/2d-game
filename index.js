@@ -1,8 +1,6 @@
-// Get canvas element and its 2D rendering context
 const canvas = document.querySelector("canvas");
 const c = canvas.getContext("2d");
 
-// Set canvas dimensions
 canvas.width = 1024;
 canvas.height = 576;
 
@@ -11,112 +9,104 @@ const scaledCanvas = {
   height: canvas.height / 4,
 };
 
-// Define gravity constant for physics simulation
-const gravity = 0.5;
-
-/**
- * Sprite Class
- * Handles loading and drawing of image-based game objects
- */
-class Sprite {
-  constructor({ position, imageSrc }) {
-    this.position = position;
-    this.image = new Image();
-    this.image.src = imageSrc;
-  }
-
-  // Draw the sprite image at its current position
-  draw() {
-    if (!this.image) return; // Prevent drawing errors if image hasn't loaded
-    c.drawImage(this.image, this.position.x, this.position.y);
-  }
-
-  // Update method called each frame
-  update() {
-    this.draw();
-  }
+const floorCollisions2D = [];
+for (let i = 0; i < floorCollisions.length; i += 36) {
+  floorCollisions2D.push(floorCollisions.slice(i, i + 36));
 }
 
-/**
- * Player Class
- * Represents a player character with physics and movement
- */
-class Player {
-  constructor(position) {
-    this.position = position;
-    this.velocity = {
-      x: 0,
-      y: 1,
-    };
-    this.height = 100;
-  }
-
-  // Draw the player as a red rectangle
-  draw() {
-    c.fillStyle = "red";
-    c.fillRect(this.position.x, this.position.y, 100, this.height);
-  }
-
-  // Update player position and apply physics each frame
-  update() {
-    this.draw();
-
-    // Update position based on velocity
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
-
-    // Apply gravity if player is not on ground
-    if (this.position.y + this.height + this.velocity.y < canvas.height)
-      this.velocity.y += gravity;
-    else this.velocity.y = 0; // Stop vertical movement when on ground
-  }
-}
-
-// Create player instances
-const player = new Player({ x: 0, y: 0 });
-const player1 = new Player({ x: 200, y: 10 });
-
-// Initialize vertical positions (unused variables?)
-let y = 100;
-let y2 = 100;
-
-// Create background sprite
-const background = new Sprite({
-  position: {
-    x: 0,
-    y: 0,
-  },
-  imageSrc: "./img/Vertical Platformer Background.png",
+const collisionBlocks = [];
+floorCollisions2D.forEach((row, y) => {
+  row.forEach((symbol, x) => {
+    if (symbol === 202) {
+      collisionBlocks.push(
+        new CollisionBlock({
+          position: {
+            x: x * 16,
+            y: y * 16,
+          },
+        })
+      );
+    }
+  });
 });
 
-/**
- * Main animation loop
- * Updates and draws all game objects each frame
- */
-function animate() {
-  window.requestAnimationFrame(animate); // Create animation loop
-
-  // Clear canvas
-  c.fillStyle = "white";
-  c.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Update game objects
-  c.save();
-  c.scale(4, 4);
-  c.translate(0, -background.image.height + scaledCanvas.height);
-  background.update();
-  c.restore();
-
-  player.update();
-  player1.update();
-
-  // Handle player horizontal movement
-  player.velocity.x = 0;
-  if (keys.d.pressed) player.velocity.x = 5; // Move right
-  else if (keys.a.pressed) player.velocity.x = -5; // Move left
+const platformCollisions2D = [];
+for (let i = 0; i < platformCollisions.length; i += 36) {
+  platformCollisions2D.push(platformCollisions.slice(i, i + 36));
 }
 
-// Track keyboard input state
+const platformCollisionBlocks = [];
+platformCollisions2D.forEach((row, y) => {
+  row.forEach((symbol, x) => {
+    if (symbol === 202) {
+      platformCollisionBlocks.push(
+        new CollisionBlock({
+          position: {
+            x: x * 16,
+            y: y * 16,
+          },
+          height: 4,
+        })
+      );
+    }
+  });
+});
+
+const gravity = 0.1;
+
+const player = new Player({
+  position: {
+    x: 100,
+    y: 300,
+  },
+  collisionBlocks,
+  platformCollisionBlocks,
+  imageSrc: "./img/warrior/Idle.png",
+  frameRate: 8,
+  animations: {
+    Idle: {
+      imageSrc: "./img/warrior/Idle.png",
+      frameRate: 8,
+      frameBuffer: 3,
+    },
+    Run: {
+      imageSrc: "./img/warrior/Run.png",
+      frameRate: 8,
+      frameBuffer: 5,
+    },
+    Jump: {
+      imageSrc: "./img/warrior/Jump.png",
+      frameRate: 2,
+      frameBuffer: 3,
+    },
+    Fall: {
+      imageSrc: "./img/warrior/Fall.png",
+      frameRate: 2,
+      frameBuffer: 3,
+    },
+    FallLeft: {
+      imageSrc: "./img/warrior/FallLeft.png",
+      frameRate: 2,
+      frameBuffer: 3,
+    },
+    RunLeft: {
+      imageSrc: "./img/warrior/RunLeft.png",
+      frameRate: 8,
+      frameBuffer: 5,
+    },
+    IdleLeft: {
+      imageSrc: "./img/warrior/IdleLeft.png",
+      frameRate: 8,
+      frameBuffer: 3,
+    },
+    JumpLeft: {
+      imageSrc: "./img/warrior/JumpLeft.png",
+      frameRate: 2,
+      frameBuffer: 3,
+    },
+  },
+});
+
 const keys = {
   d: {
     pressed: false,
@@ -126,35 +116,95 @@ const keys = {
   },
 };
 
-// Start the animation loop
+const background = new Sprite({
+  position: {
+    x: 0,
+    y: 0,
+  },
+  imageSrc: "./img/background.png",
+});
+
+const backgroundImageHeight = 432;
+
+const camera = {
+  position: {
+    x: 0,
+    y: -backgroundImageHeight + scaledCanvas.height,
+  },
+};
+
+function animate() {
+  window.requestAnimationFrame(animate);
+  c.fillStyle = "white";
+  c.fillRect(0, 0, canvas.width, canvas.height);
+
+  c.save();
+  c.scale(4, 4);
+  c.translate(camera.position.x, camera.position.y);
+  background.update();
+  // collisionBlocks.forEach((collisionBlock) => {
+  //   collisionBlock.update()
+  // })
+
+  // platformCollisionBlocks.forEach((block) => {
+  //   block.update()
+  // })
+
+  player.checkForHorizontalCanvasCollision();
+  player.update();
+
+  player.velocity.x = 0;
+  if (keys.d.pressed) {
+    player.switchSprite("Run");
+    player.velocity.x = 2;
+    player.lastDirection = "right";
+    player.shouldPanCameraToTheLeft({ canvas, camera });
+  } else if (keys.a.pressed) {
+    player.switchSprite("RunLeft");
+    player.velocity.x = -2;
+    player.lastDirection = "left";
+    player.shouldPanCameraToTheRight({ canvas, camera });
+  } else if (player.velocity.y === 0) {
+    if (player.lastDirection === "right") player.switchSprite("Idle");
+    else player.switchSprite("IdleLeft");
+  }
+
+  if (player.velocity.y < 0) {
+    player.shouldPanCameraDown({ camera, canvas });
+    if (player.lastDirection === "right") player.switchSprite("Jump");
+    else player.switchSprite("JumpLeft");
+  } else if (player.velocity.y > 0) {
+    player.shouldPanCameraUp({ camera, canvas });
+    if (player.lastDirection === "right") player.switchSprite("Fall");
+    else player.switchSprite("FallLeft");
+  }
+
+  c.restore();
+}
+
 animate();
 
-/**
- * Keyboard Event Listeners
- */
-// Handle keydown events
 window.addEventListener("keydown", (event) => {
   switch (event.key) {
     case "d":
-      keys.d.pressed = true; // Start moving right
+      keys.d.pressed = true;
       break;
     case "a":
-      keys.a.pressed = true; // Start moving left
+      keys.a.pressed = true;
       break;
     case "w":
-      player.velocity.y = -15; // Jump
+      player.velocity.y = -4;
       break;
   }
 });
 
-// Handle keyup events
 window.addEventListener("keyup", (event) => {
   switch (event.key) {
     case "d":
-      keys.d.pressed = false; // Stop moving right
+      keys.d.pressed = false;
       break;
     case "a":
-      keys.a.pressed = false; // Stop moving left
+      keys.a.pressed = false;
       break;
   }
 });
